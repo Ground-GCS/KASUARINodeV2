@@ -1,4 +1,4 @@
-var param = {
+var paramMaps = {
         lintang 	: -6.9147439 , //Bandung
         bujur 		: 107.609809875, //Bandung
         setLintang : function(data){
@@ -22,20 +22,20 @@ function mapUpdate(){
 	var socket = io.connect();
 
 	socket.on('dataCoordinate' , function(data) {
-		param.setLintang(data.data[0]);
-		param.setBujur(data.data[1]);
+		paramMaps.setLintang(data.data[0]);
+		paramMaps.setBujur(data.data[1]);
 
-		redraw(param.getLintang(), param.getBujur());
+		redraw(paramMaps.getLintang(), paramMaps.getBujur());
 	});
 
 	 //Make map
         map = new google.maps.Map(document.getElementById('map'), {
           zoom: 17,
-          center: {lat: param.getLintang(), lng : param.getBujur(), alt: 0}
+          center: {lat: paramMaps.getLintang(), lng : paramMaps.getBujur(), alt: 0}
         });
 
         //make marker
-        map_marker = new google.maps.Marker({position: {lat: param.getLintang(), lng: param.getBujur()}, map: map});
+        map_marker = new google.maps.Marker({position: {lat: paramMaps.getLintang(), lng: paramMaps.getBujur()}, map: map});
         map_marker.setMap(map);
      
 

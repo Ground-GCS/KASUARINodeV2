@@ -107,7 +107,6 @@ let param = {
         param.graph.tekanan.push(param.tekanan);
         param.graph.arahAngin.push(param.arahAngin);
         param.graph.kecAngin.push(param.kecAngin);
-        param.graph.co2.push(param.co2);
   },
   setData : (data)=> {
     /*
@@ -127,7 +126,7 @@ let param = {
       // set all incoming to suitable parameter
     */
     //param.ketinggian  = data[1];
-    param.ketinggian = param.ketinggian + 1;
+    param.ketinggian = param.ketinggian + 1; // uncomment this if demo ketinggian
 
     if (data[2] != "0.00") {
       param.temperature = data[2]; 
@@ -163,11 +162,12 @@ let param = {
       let bearing = getBearing(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
       let dist = distance(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
 
-      if(!isNaN(bearing))
-        param.arahAngin = bearing; // set calcuate bearing as arah angin (degree)
 
       if(!isNaN(dist))
         param.kecAngin = dist; // set distance as kecepatan angin (m/s)
+
+      if(!isNaN(bearing) && dist > 1)
+        param.arahAngin = bearing; // set calcuate bearing as arah angin (degree)
     }
   },
   getAzimuthAT : (homeLat,homeLon) =>{
@@ -183,6 +183,35 @@ let param = {
       output sudut elevasi antenna tracker
     */
     return parseInt(getElevation(homeLat, homeLon, param.latitude, param.longitude, param.ketinggian));
+  },
+  getArrayData :()=>{
+    let arr = [];
+    /*
+    headers: [
+      "ID", 
+      "Waktu",
+      "Ketinggian",
+      "Temperature",
+      "Kelembaban",
+      "Tekanan",
+      "Arah Angin",
+      "Kecepatan Angin",
+      "Lintang",
+      "Bujur"
+      ]
+    */
+    arr.push(param.nama); // ID
+    arr.push(moment().format("HH:mm:ss")); //waktu
+    arr.push(param.ketinggian);
+    arr.push(param.temperature);
+    arr.push(param.kelembaban);
+    arr.push(param.tekanan);
+    arr.push(param.arahAngin);
+    arr.push(param.kecAngin);
+    arr.push(param.latitude);
+    arr.push(param.longitude);
+
+    return arr;
   }
 };
 
@@ -193,7 +222,6 @@ let param = {
   Distance give kecepatan angin
   Elevation give antennaTrackerElevation
 */
-
 function radians(n) {
   return n * (Math.PI / 180);
 }
@@ -213,9 +241,9 @@ function getBearing(startLat,startLong,endLat,endLong){
   endLat = radians(endLat);
   endLong = radians(endLong);
 
-  var dLong = endLong - startLong;
+  let dLong = endLong - startLong;
 
-  var dPhi = Math.log(Math.tan(endLat/2.0+Math.PI/4.0)/Math.tan(startLat/2.0+Math.PI/4.0));
+  let dPhi = Math.log(Math.tan(endLat/2.0+Math.PI/4.0)/Math.tan(startLat/2.0+Math.PI/4.0));
   if (Math.abs(dLong) > Math.PI){
     if (dLong > 0.0)
        dLong = -(2.0 * Math.PI - dLong);
@@ -223,10 +251,10 @@ function getBearing(startLat,startLong,endLat,endLong){
        dLong = (2.0 * Math.PI + dLong);
   }
 
-  var bearingDegree = (degrees(Math.atan2(dLong, dPhi)) + 360.0) % 360.0; 
+  let bearingDegree = (degrees(Math.atan2(dLong, dPhi)) + 360.0) % 360.0; 
   
   if (!Number.isNaN(bearingDegree))
-    return bearingDegree;
+    return bearingDegree.toFixed(2);
 }
 
 function getElevation(startLat, startLong, endLat, endLong , alt){
@@ -240,21 +268,21 @@ function getElevation(startLat, startLong, endLat, endLong , alt){
   endLat = radians(endLat);
   endLong = radians(endLong);
 
-  var delLat = endLat - startLat;
-  var delLon = endLong - startLong;
+  let delLat = endLat - startLat;
+  let delLon = endLong - startLong;
 
-  var R = 6372795;
-  var q = Math.sin(delLat/2)*Math.sin(delLat/2);
-  var w = Math.cos(startLat)*Math.cos(endLat);
-  var e = Math.sin(delLon/2)*Math.sin(delLon/2);
-  var a = (q + w*e);
-  var c = 2*Math.atan2(Math.sqrt(a) , Math.sqrt(1-a));
-  var distance = c * R;
+  let R = 6372795;
+  let q = Math.sin(delLat/2)*Math.sin(delLat/2);
+  let w = Math.cos(startLat)*Math.cos(endLat);
+  let e = Math.sin(delLon/2)*Math.sin(delLon/2);
+  let a = (q + w*e);
+  let c = 2*Math.atan2(Math.sqrt(a) , Math.sqrt(1-a));
+  let distance = c * R;
 
-  var elev = degrees(Math.atan(alt/distance));
+  let elev = degrees(Math.atan(alt/distance));
   
   if (!Number.isNaN(elev))
-    return elev;
+    return elev.toFixed(2);
 }
 
 /**
@@ -266,27 +294,26 @@ function getElevation(startLat, startLong, endLat, endLong , alt){
  * el2 End altitude in meters
  * @returns Distance in Meters
  */
-function distance(lat1,lon1,lat2,
-        lon2, el1,  el2) {
+function distance(lat1,lon1,lat2,lon2, el1,  el2) {
 
-    var R = 6371; // Radius of the earth
-    el1 = 0;
-    el2 = 0;
+  let R = 6371; // Radius of the earth
+  el1 = 0;
+  el2 = 0;
 
-    var latDistance = radians(lat2 - lat1);
-    var lonDistance = radians(lon2 - lon1);
-    var a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-            + Math.cos(radians(lat1)) * Math.cos(radians(lat2))
-            * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    var distance = R * c * 1000; // convert to meters
+  let latDistance = radians(lat2 - lat1);
+  let lonDistance = radians(lon2 - lon1);
+  let a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+          + Math.cos(radians(lat1)) * Math.cos(radians(lat2))
+          * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+  let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  let distanceRes = R * c * 1000; // convert to meters
 
-    var height = el1 - el2;
+  let height = el1 - el2;
 
-    var distance = Math.pow(distance, 2) + Math.pow(height, 2);
+  let distance = Math.pow(distanceRes, 2) + Math.pow(height, 2);
 
-    if (distance < 100)
-      return Math.sqrt(distance).toFixed(2);
+  if (distance < 100)
+    return Math.sqrt(distance).toFixed(2);
 }
 
 

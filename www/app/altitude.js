@@ -58,7 +58,7 @@ setInterval(function(){
             },
              cache: false
           });
- },10000);
+ },2000); // 10 seconds
     
 runAllChart();
 //        console.log(param.graph.kelembaban);

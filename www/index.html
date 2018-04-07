@@ -82,7 +82,7 @@
     </style>
 
   </head>
-  <body class="nav-md" onload="update()" ng-app="appSampleMod" ng-controller="appSampleCtrl">
+  <body class="nav-md" onload="update() , mapUpdate()" ng-app="appSampleMod" ng-controller="appSampleCtrl">
     <div class="container body">
       <div class="main_container">
         <div class="col-md-3 left_col menu_fixed">
@@ -253,22 +253,7 @@
   <!-- content -->
   
   <div class="row">
-     <div class="col-md-6 col-sm-6 col-xs-12">
-        <div class="x_panel">
-          <div class="x_title">
-             <h2>Real Time Graph - <small>Kecepatan Angin</small></h2>
-            <ul class="nav navbar-right panel_toolbox">
-              <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
-              </li>
-            </ul>
-            <div class="clearfix"></div>
-          </div>
-          <div class="x_content">
-            <div id="chartKece" style="width:100%; height:600px;"></div>
-          </div>
-        </div>
-      </div>
-    <!-- /bar charts -->
+     
 
     <!-- kelembaban charts group -->
     <div class="col-md-6 col-sm-6 col-xs-12">
@@ -282,11 +267,26 @@
           <div class="clearfix"></div>
         </div>
         <div class="x_content" style="width:100%; height:300px;">
-                <div id="sikap" style=" margin-left: 150px; margin-top: 180px; margin-bottom: 180px;"></div>
+            <div id="sikap" style=" margin-left: 150px; margin-top: 180px; margin-bottom: 180px;"></div>
         </div>
       </div>
     </div>
-    <div class="clearfix"></div>
+    <div class="col-md-6 col-sm-6 col-xs-12">
+	    <div class="x_panel">
+	      <div class="x_title">
+	          <h2>Real Time Map</h2>
+	        <ul class="nav navbar-right panel_toolbox">
+	          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
+	          </li>
+	        </ul>
+	        <div class="clearfix"></div>
+	      </div>
+	      <div class="x_content">
+	        <div id="map" style="width:100%; height:300px;"></div>
+	      </div>
+	    </div>
+	 </div>
+
     <!-- /bar charts group -->
       <div class="col-md-6 col-sm-6 col-xs-12">
         <div class="x_panel">
@@ -361,7 +361,22 @@
       <!-- /Pie chart -->
 
       <!-- Kecepatan Angin area -->
-     
+     <div class="col-md-6 col-sm-6 col-xs-12">
+        <div class="x_panel">
+          <div class="x_title">
+             <h2>Real Time Graph - <small>Kecepatan Angin</small></h2>
+            <ul class="nav navbar-right panel_toolbox">
+              <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
+              </li>
+            </ul>
+            <div class="clearfix"></div>
+          </div>
+          <div class="x_content">
+            <div id="chartKece" style="width:100%; height:600px;"></div>
+          </div>
+        </div>
+      </div>
+    <!-- /bar charts -->
       <!-- /graph area -->
 
       
@@ -395,7 +410,7 @@
     }
     setInterval(clock, 1000);
 </script>
-
+<script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
 <script src="js/jquery.min.js"></script>
 <script src="js/nprogress.js"></script>
 <!-- <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
@@ -419,21 +434,12 @@
 <!-- chart js -->
 <script src="js/chartjs/chart.min.js"></script>
 <script src="js/custom.js"></script>
-<!-- flot js -->
-<!--[if lte IE 8]><script type="text/javascript" src="js/excanvas.min.js"></script><![endif]-->
-<!-- <script type="text/javascript" src="js/flot/jquery.flot.js"></script>
-<script type="text/javascript" src="js/flot/jquery.flot.pie.js"></script>
-<script type="text/javascript" src="js/flot/jquery.flot.orderBars.js"></script>
-<script type="text/javascript" src="js/flot/jquery.flot.time.min.js"></script>
-<script type="text/javascript" src="js/flot/date.js"></script>
-<script type="text/javascript" src="js/flot/jquery.flot.spline.js"></script>
-<script type="text/javascript" src="js/flot/jquery.flot.stack.js"></script>
-<script type="text/javascript" src="js/flot/curvedLines.js"></script>
-<script type="text/javascript" src="js/flot/jquery.flot.resize.js"></script> -->
 
 <!-- Serial Communication Begin -->
 <script src="/socket.io/socket.io.js"></script>
 <script src="app/data.js"></script>
+<script src="app/coordinate.js"></script>
+
 
 <!-- Graph -->
 <script src="plugins/Highcharts/highcharts.js"></script>

@@ -3,8 +3,11 @@
  *
  * Bismillahirahmanirahim 
  * Todo : 
- *	1. config serial port
- * 	2. socket.io
+ *	1. Config serial port (done)
+ * 	2. socket.io (done)
+ *  3. All Parameter sesuai (done)
+ *  4. Antenna Tracker sudut azimuth dan elevasi (done)
+ *  4. Save 10 detik csv
  */
  // change this with the home coordinate
  //-6.970484, 107.629704
@@ -23,8 +26,8 @@ const serial = require('./config/serialConnection.js'),
 	  	kombatParser = new parsers.Readline({
 				delimiter : '\r\n'
 			}),
-	  	mainPortNum = process.argv[2], 
-	  	antennaPortNum = process.argv[3],
+	  	mainPortNum = process.argv[2], // first argument for KOMBAT serial connection
+	  	antennaPortNum = process.argv[3], // second argument for Antenna Tracker serial connection
 	  	mainBaudRate = 57600;
 /*=====  End of Serial Communication Defenition  ======*/
 
@@ -35,13 +38,26 @@ const express = require('express'),
 		app = express(),
 		server = require('http').createServer(app),
 		io = require('socket.io').listen(server),
-		path = require('path');
+		path = require('path'),
+    bodyParser = require('body-parser');
 
+//config express for using json
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname,'www'))); // untuk nempation file web kita di folder www
+
+// route 
+app.get('/data' , function(req , res) {
+  res.json({data : kombatData.graph}); // send data graph to route /data
+});
+
 const portListen = 3000;
 server.listen(portListen);
 console.log("Server starting on localhost:"+portListen)
+
 let jumlahClient = 0;
+
+// connection event
 io.on('connection' , (socket) => {
 	jumlahClient++;
 	console.log('New Client Connected...\n'  + 'Total :' + jumlahClient);
@@ -51,12 +67,22 @@ io.on('connection' , (socket) => {
 		console.log('Client disconnected \n' + 'Total :' + jumlahClient);
 	});
 
+  socket.on('savingData' , (data)=>{
+    csvWrite.saveFile(writerFilter,kombatData.getArrayData());
+    kombatData.dataAdd();
+  });
+
 });
+
 
 /*=====  End of Socket IO & Express Defenition  ======*/
 
+// MAIN 
+let kombatPort = null;
+let antennaPort = null;
 try {
-	kombatPort = serial.connectSerial(mainPortNum,mainBaudRate);
+	kombatPort = serial.connectSerial(mainPortNum,mainBaudRate); // open serial connection
+  setupAntennaTracker(); // make antennaPort available
 	//open the port
 	kombatPort.on('open', ()=> {
 		setTimeout(()=>{
@@ -65,12 +91,12 @@ try {
 		console.log("Main serial is open, starting receieve the data...");
 	});
 
-	kombatPort.pipe(kombatParser);
+	kombatPort.pipe(kombatParser); // using parser
+
+  // data event for serial data incoming
 	kombatParser.on('data' , (data) => {
 	 	let result;
 	 	result = serial.parsingRAWData(data,","); // parsing incoming data.
-	 	console.log(result);
-    console.log(result.length);
 
 	 	if(result.length == 10 && result[0] == "OK"){
 	 		console.log("IN");
@@ -86,72 +112,111 @@ try {
       let datts = kombatData.getData();
       console.log(datts);
 
-	 	  io.sockets.emit('kirim', { 
-            datahasil : [
-              kombatData.ketinggian,
-              kombatData.temperature,
-              kombatData.kelembaban,
-              kombatData.tekanan,
-              kombatData.arahAngin,
-              kombatData.kecAngin,
-              kombatData.latitude,
-              kombatData.longitude,
-              kombatData.pitch,
-              kombatData.roll,
-              kombatData.yaw            ]
-          });  
 
-      io.sockets.emit('dataGraph', {  
-            data : [ 
-              kombatData.ketinggian,
-              kombatData.temperature,
-              kombatData.kelembaban,
-              kombatData.tekanan,
-              kombatData.arahAngin,
-              kombatData.kecAngin            ]
-          });
-
-      io.sockets.emit('dataGauge', {  
-            data : [ 
-              kombatData.ketinggian,
-              kombatData.temperature,
-              kombatData.kelembaban,
-              kombatData.tekanan,
-              kombatData.arahAngin,
-              kombatData.kecAngin
-            ]
-          });
-
-      io.sockets.emit('dataCoordinate', {  
-            data : [ 
-              kombatData.latitude,
-              kombatData.longitude
-            ]
-          });
-
-      io.sockets.emit('angin' , {
-            data : [ 
-              kombatData.arahAngin , 
-              kombatData.kecAngin
-            ]
-          });
+      // invoke function to send to socket
+      sendToSockets();
 	 	}
 	});
 
-
-	// check the string from antennaPort
-	if(antennaPortNum != null)
-		antennaPort = serial.connectSerial(antennaPortNum,mainBaudRate);
-
-
-
 } catch(error) {
+  // Exception error
 	console.error(error);
 	console.log("Available Port are : ");
 	serial.checkListPort();
 }
 
+function setupAntennaTracker(){
+  if (antennaPortNum != null){
+    antennaPort = serial.connectSerial(antennaPortNum,mainBaudRate);
+  }
+}
 
+// write azimuth and elevation to antenna tracker
+let prevElevation = 0, prevAzimuth = 0 , command = "";
+function writeAntennaTracker(azimuth, elevation, portAT){
+  if (prevElevation != elevation || prevAzimuth != azimuth){
+    prevElevation = elevation;
+    prevAzimuth = azimuth;
+
+    command = " " + azimuth + "," + elevation + "#";
+    serial.writeAndDrain(portAT,command);
+  }
+}
+
+// io.socket.emit send to web socket
+// call it to main..
+function sendToSockets(){
+  io.sockets.emit('kirim', { 
+    datahasil : [
+      kombatData.ketinggian,
+      kombatData.temperature,
+      kombatData.kelembaban,
+      kombatData.tekanan,
+      kombatData.arahAngin,
+      kombatData.kecAngin,
+      kombatData.latitude,
+      kombatData.longitude,
+      kombatData.pitch,
+      kombatData.roll,
+      kombatData.yaw
+      ]
+  });  
+
+  io.sockets.emit('dataGraph', {  
+    data : [ 
+      kombatData.ketinggian,
+      kombatData.temperature,
+      kombatData.kelembaban,
+      kombatData.tekanan,
+      kombatData.arahAngin,
+      kombatData.kecAngin            
+      ]
+  });
+
+  io.sockets.emit('dataGauge', {  
+    data : [ 
+      kombatData.ketinggian,
+      kombatData.temperature,
+      kombatData.kelembaban,
+      kombatData.tekanan,
+      kombatData.arahAngin,
+      kombatData.kecAngin
+    ]
+  });
+
+  io.sockets.emit('dataCoordinate', {  
+    data : [ 
+      kombatData.latitude,
+      kombatData.longitude
+    ]
+  });
+
+  io.sockets.emit('angin' , {
+    data : [ 
+      kombatData.arahAngin , 
+      kombatData.kecAngin
+    ]
+  });
+
+}; 
+
+// Setup CSV
+const csvWrite = require('./config/csvWrite.js');
+let writerRAW;
+let writerFilter;
+function setupCSVWrite(){
+  writerRAW = csvWrite.createCSVWrite('saveRAW.csv');
+  writerFilter = csvWrite.createCSVWrite('saveFilter.csv');
+}
+setupCSVWrite();
+
+// save to CSV and log to attitude
+setInterval(()=>{
+  console.log("save data to csv");
+  csvWrite.saveFile(writerFilter,kombatData.getArrayData());
+  kombatData.dataAdd(); // save to graph for graph
+  console.log()
+}, 10 * 1000) // 10 s
 
 // Safely close
 process.stdin.resume();//so the program will not close instantly
@@ -166,6 +231,10 @@ function exitHandler(options, err) {
 
     	console.log('Close Port..');
     }
+
+    // close CSV
+    writerRAW.end();
+    writerFilter.end();
     if (err) console.log(err.stack);
     if (options.exit) process.exit();
 }

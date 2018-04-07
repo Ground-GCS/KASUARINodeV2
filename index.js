@@ -7,7 +7,8 @@
  * 	2. socket.io (done)
  *  3. All Parameter sesuai (done)
  *  4. Antenna Tracker sudut azimuth dan elevasi (done)
- *  4. Save 10 detik csv
+ *  4. Save 10 detik csv (done)
+ *  5. try vincenty formula using node-vincenty
  */
  // change this with the home coordinate
  //-6.970484, 107.629704
@@ -104,7 +105,7 @@ try {
 	 		kombatData.setData(result);
 
       //calculate bearing and windspeed
-      kombatData.getBearing_WindSpeed();
+      //kombatData.getBearing_WindSpeed();
 
       // azimuth and elevation
       console.log('Azimuth : ' + kombatData.getAzimuthAT(homeLatitude,homeLongitude));

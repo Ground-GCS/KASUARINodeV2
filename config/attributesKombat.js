@@ -1,6 +1,7 @@
 const moment = require('moment-timezone'); //config timezone
 moment().tz("Asia/Bangkok").format();
 
+let firstTimes = true;
 let param = {
   nama : 621, //header team
   ketinggian : 0 ,
@@ -21,6 +22,9 @@ let param = {
   pitch : 0,
   roll : 0,
   yaw : 0,
+  prevLat : 0.0,
+  prevLon : 0.0,
+  notValidMovement : false ,
   graph : {
         ketinggian : [],
         temperature : [],
@@ -135,40 +139,96 @@ let param = {
     param.tekanan = data[4];
     if (data[5] != "********** " || data[6] != "0.000000 " || data[6] != "0.000000" ) {
       if (!isNaN(data[5]) && !isNaN(data[6])) {
-        param.latitude    = data[5];
-        param.longitude   = data[6];
+      
+        if (firstTimes){
+          // let for the first time set latitude and longitue
+           param.latitude    = data[5];
+           param.longitude   = data[6];
+        }
+        firstTimes = false; // set it to false
+
+        param.setValidGPS(data[5],data[6]); // update point if dist > 1
       }
     }
     param.pitch = data[7];
     param.roll  = data[8];
     param.yaw   = data[9];
   },
+  setValidGPS :(lat,lon) =>{
+    /*
+    if distance < 1 dont update the gps 
+    */
+    // delay 1 seconds to get first gps data
+    
+    setTimeout( ()=>{
+      param.prevLat = lat;
+      param.prevLon = lon;
+    }, 1000);
+
+    // after delay 1 seconds 
+    let dist = 0;
+    //console.log(lat,lon);
+    //console.log(param.prevLat,param.prevLon);
+    // using vincenty
+    // distVincenty(param.prevLat, param.prevLon, lat, lon, function (distance) {
+    //   dist = distance;
+    //   console.log("distance :" + distance);
+    // });
+
+    //using heaversine
+    dist = distance(param.prevLat, param.prevLon, lat, lon);
+    console.log("Distance Initial: " + dist);
+    //console.log(dist);
+
+    // check distance greater than 1 m/s and under 1000 m/s
+    // /console.log("distance :" + dist);
+    if (dist > 1 && dist < 1000){
+      param.latitude = lat;
+      param.longitude = lon;
+      console.log("Set lat lon");
+      param.getBearing_WindSpeed();
+    } else {
+      param.notValidMovement = true;
+    }
+
+  },
   getBearing_WindSpeed : ()=>{
     /*
       Calculate Bearing and wind speed
     */
     // delay 1 seconds to get first gps data
-    setTimeout( ()=>{
-      param.startLatitude = param.latitude;
-      param.startLongitude = param.longitude;
-    }, 1000);
+    // cek valid movement = false
+      console.log("set speed and bearing");
+      setTimeout( ()=>{
+        param.startLatitude = param.latitude;
+        param.startLongitude = param.longitude;
+      }, 1000);
 
-    // after delay 1 seconds 
-    param.endLatitude = param.latitude;
-    param.endLongitude = param.longitude;
+      // after delay 1 seconds 
+      param.endLatitude = param.latitude;
+      param.endLongitude = param.longitude;
 
-    // check startLatitude not endLatitude or startLongitude not endLongitude
-    if(param.startLongitude != param.endLongitude || param.startLatitude != param.endLatitude){
-      let bearing = getBearing(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
-      let dist = distance(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
+      // check startLatitude not endLatitude or startLongitude not endLongitude
+      //if(param.startLongitude != param.endLongitude || param.startLatitude != param.endLatitude){
+        // using heaversine formula
+         let bearing = getBearing(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
+         let dist = distance(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
 
 
-      if(!isNaN(dist))
-        param.kecAngin = dist; // set distance as kecepatan angin (m/s)
+         if(!isNaN(dist))
+           param.kecAngin = dist; // set distance as kecepatan angin (m/s)
 
-      if(!isNaN(bearing) && dist > 1)
-        param.arahAngin = bearing; // set calcuate bearing as arah angin (degree)
-    }
+         if(!isNaN(bearing))
+           param.arahAngin = bearing; // set calcuate bearing as arah angin (degree)
+      
+        //using vincenity formula
+        // distVincenty(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude, function (distance, initialBearing, finalBearing) {
+        //     //console.log(distance, initialBearing, finalBearing);
+        //     param.kecAngin = distance;
+        //     param.arahAngin = finalBearing;
+        // });
+    //  }
+    //}
   },
   getAzimuthAT : (homeLat,homeLon) =>{
     /*
@@ -314,6 +374,81 @@ function distance(lat1,lon1,lat2,lon2, el1,  el2) {
 
   if (distance < 100)
     return Math.sqrt(distance).toFixed(2);
+}
+
+
+// https://github.com/TankofVines/node-vincenty/blob/master/vincenty.js
+function distVincenty(lat1, lon1, lat2, lon2, callback) {
+
+  lat1 = parseFloat(lat1);
+  lon1 = parseFloat(lon1);
+  lat2 = parseFloat(lat2);
+  lon2 = parseFloat(lon2);
+  var a = 6378137,
+    b = 6356752.314245,
+    f = 1 / 298.257223563;  // WGS-84 ellipsoid params
+
+  var L = radians(( lon2 - lon1 ));
+  var U1 = Math.atan(( 1 - f ) * Math.tan( radians(lat1) ));
+  var U2 = Math.atan(( 1 - f ) * Math.tan( radians(lat2) ));
+  var sinU1 = Math.sin(U1), cosU1 = Math.cos(U1);
+  var sinU2 = Math.sin(U2), cosU2 = Math.cos(U2);
+
+  var lambda = L, lambdaP, iterLimit = 100;
+  do {
+    var sinLambda = Math.sin(lambda), cosLambda = Math.cos(lambda);
+    var sinSigma = Math.sqrt((cosU2*sinLambda) * (cosU2*sinLambda) +
+      (cosU1*sinU2-sinU1*cosU2*cosLambda) * (cosU1*sinU2-sinU1*cosU2*cosLambda));
+    if (sinSigma==0) {
+      var result = { distance: 0, initialBearing: 0, finalBearing: 0 };
+      if (callback !== undefined && callback instanceof Function) {
+        if (callback.length === 3) {
+          callback(result.distance, result.initialBearing, result.finalBearing);
+        }
+        else {
+          callback(result.distance);
+        }
+      }
+      return result;
+    };  // co-incident points
+    var cosSigma = sinU1*sinU2 + cosU1*cosU2*cosLambda;
+    var sigma = Math.atan2(sinSigma, cosSigma);
+    var sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
+    var cosSqAlpha = 1 - sinAlpha*sinAlpha;
+    var cos2SigmaM = cosSigma - 2*sinU1*sinU2/cosSqAlpha;
+    if (isNaN(cos2SigmaM)) cos2SigmaM = 0;  // equatorial line: cosSqAlpha=0 (§6)
+    var C = f/16*cosSqAlpha*(4+f*(4-3*cosSqAlpha));
+    lambdaP = lambda;
+    lambda = L + (1-C) * f * sinAlpha *
+      (sigma + C*sinSigma*(cos2SigmaM+C*cosSigma*(-1+2*cos2SigmaM*cos2SigmaM)));
+  } while (Math.abs(lambda-lambdaP) > 1e-12 && --iterLimit>0);
+
+  if (iterLimit==0) return NaN  // formula failed to converge
+
+  var uSq = cosSqAlpha * (a*a - b*b) / (b*b);
+  var A = 1 + uSq/16384*(4096+uSq*(-768+uSq*(320-175*uSq)));
+  var B = uSq/1024 * (256+uSq*(-128+uSq*(74-47*uSq)));
+  var deltaSigma = B*sinSigma*(cos2SigmaM+B/4*(cosSigma*(-1+2*cos2SigmaM*cos2SigmaM)-
+    B/6*cos2SigmaM*(-3+4*sinSigma*sinSigma)*(-3+4*cos2SigmaM*cos2SigmaM)));
+  var s = b*A*(sigma-deltaSigma);
+
+  s = Number(s.toFixed(3)); // round to 1mm precision
+
+  // note: to return initial/final bearings in addition to distance, use something like:
+  var fwdAz = Math.atan2(cosU2*sinLambda,  cosU1*sinU2-sinU1*cosU2*cosLambda);
+  var revAz = Math.atan2(cosU1*sinLambda, -sinU1*cosU2+cosU1*sinU2*cosLambda);
+  var result = { distance: s, initialBearing: degrees(fwdAz), finalBearing: degrees(revAz) };
+
+  if (callback !== undefined && callback instanceof Function) {
+    if (callback.length === 3) {
+      callback(result.distance, result.initialBearing, result.finalBearing);
+    }
+    else {
+      callback(result.distance);
+    }
+  }
+
+  return result;
 }
 
 

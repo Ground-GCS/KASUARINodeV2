@@ -61,8 +61,14 @@ function update() {
 	  $("#kelembaban").html(Kelembaban);
 	  $("#ketinggian").html(Ketinggian);
 	  $("#tekanan").html(Tekanan);
-	  $("#arahangin").html(ArahAngin);
-	  $("#KecAngin").html(KecAngin);
+    if(ArahAngin <= 0.00 && KecAngin <= 0.00) {
+      $("#arahangin").html("-");
+  	  $("#KecAngin").html("-");
+    } else {
+      $("#arahangin").html(ArahAngin);
+      $("#KecAngin").html(KecAngin);
+      
+    }
 	  $("#lintang").html(Lintang);
 	  $("#bujur").html(Bujur);
 

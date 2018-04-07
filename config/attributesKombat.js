@@ -1,7 +1,7 @@
 const moment = require('moment-timezone'); //config timezone
 moment().tz("Asia/Bangkok").format();
 
-const param = {
+let param = {
   nama : 621, //header team
   ketinggian : 0 ,
   temperature : 0, 
@@ -110,7 +110,24 @@ const param = {
         param.graph.co2.push(param.co2);
   },
   setData : (data)=> {
-    param.ketinggian  = data[1];
+    /*
+      Change this with the data incoming..
+      Index   Data      Description
+      [0]     Header    static var ID
+      [1]     Altitude    ms5661 
+      [2]     temperature SHT11
+      [3]     kelembaban  SHT11
+      [4]     tekananan  MS5661
+      [5]     latitude   GPS NEO
+      [6]     longitude  GPS NEO
+      [7]     pitch     CMPS10
+      [8]     roll      CMPS10
+      [9]     yaw       CMPS10
+
+      // set all incoming to suitable parameter
+    */
+    //param.ketinggian  = data[1];
+    param.ketinggian = param.ketinggian + 1;
 
     if (data[2] != "0.00") {
       param.temperature = data[2]; 
@@ -126,8 +143,151 @@ const param = {
     param.pitch = data[7];
     param.roll  = data[8];
     param.yaw   = data[9];
+  },
+  getBearing_WindSpeed : ()=>{
+    /*
+      Calculate Bearing and wind speed
+    */
+    // delay 1 seconds to get first gps data
+    setTimeout( ()=>{
+      param.startLatitude = param.latitude;
+      param.startLongitude = param.longitude;
+    }, 1000);
+
+    // after delay 1 seconds 
+    param.endLatitude = param.latitude;
+    param.endLongitude = param.longitude;
+
+    // check startLatitude not endLatitude or startLongitude not endLongitude
+    if(param.startLongitude != param.endLongitude || param.startLatitude != param.endLatitude){
+      let bearing = getBearing(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
+      let dist = distance(param.startLatitude, param.startLongitude, param.endLatitude, param.endLongitude);
+
+      if(!isNaN(bearing))
+        param.arahAngin = bearing; // set calcuate bearing as arah angin (degree)
+
+      if(!isNaN(dist))
+        param.kecAngin = dist; // set distance as kecepatan angin (m/s)
+    }
+  },
+  getAzimuthAT : (homeLat,homeLon) =>{
+    /*
+      input Home Latitude - Home Longitude antenna Tracker
+      output sudut azimuth antenna tracker
+    */
+    return parseInt(getBearing(homeLat, homeLon, param.latitude, param.longitude));
+  },
+  getElevationAT : (homeLat,homeLon)=>{
+    /*
+      input Home Latitude - Home Longitude antenna Tracker
+      output sudut elevasi antenna tracker
+    */
+    return parseInt(getElevation(homeLat, homeLon, param.latitude, param.longitude, param.ketinggian));
   }
 };
+
+
+// GPS Calculation
+/*
+  Bearing give arahAngin and Azimuth 
+  Distance give kecepatan angin
+  Elevation give antennaTrackerElevation
+*/
+
+function radians(n) {
+  return n * (Math.PI / 180);
+}
+
+function degrees(n) {
+  return n * (180 / Math.PI);
+}
+
+function getBearing(startLat,startLong,endLat,endLong){
+  startLat = parseFloat(startLat);
+  startLong = parseFloat(startLong);
+  endLat = parseFloat(endLat);
+  endLong = parseFloat(endLong);
+
+  startLat = radians(startLat);
+  startLong = radians(startLong);
+  endLat = radians(endLat);
+  endLong = radians(endLong);
+
+  var dLong = endLong - startLong;
+
+  var dPhi = Math.log(Math.tan(endLat/2.0+Math.PI/4.0)/Math.tan(startLat/2.0+Math.PI/4.0));
+  if (Math.abs(dLong) > Math.PI){
+    if (dLong > 0.0)
+       dLong = -(2.0 * Math.PI - dLong);
+    else
+       dLong = (2.0 * Math.PI + dLong);
+  }
+
+  var bearingDegree = (degrees(Math.atan2(dLong, dPhi)) + 360.0) % 360.0; 
+  
+  if (!Number.isNaN(bearingDegree))
+    return bearingDegree;
+}
+
+function getElevation(startLat, startLong, endLat, endLong , alt){
+  startLat = parseFloat(startLat);
+  startLong = parseFloat(startLong);
+  endLat = parseFloat(endLat);
+  endLong = parseFloat(endLong);
+
+  startLat = radians(startLat);
+  startLong = radians(startLong);
+  endLat = radians(endLat);
+  endLong = radians(endLong);
+
+  var delLat = endLat - startLat;
+  var delLon = endLong - startLong;
+
+  var R = 6372795;
+  var q = Math.sin(delLat/2)*Math.sin(delLat/2);
+  var w = Math.cos(startLat)*Math.cos(endLat);
+  var e = Math.sin(delLon/2)*Math.sin(delLon/2);
+  var a = (q + w*e);
+  var c = 2*Math.atan2(Math.sqrt(a) , Math.sqrt(1-a));
+  var distance = c * R;
+
+  var elev = degrees(Math.atan(alt/distance));
+  
+  if (!Number.isNaN(elev))
+    return elev;
+}
+
+/**
+ * Calculate distance between two points in latitude and longitude taking
+ * into account height difference. If you are not interested in height
+ * difference pass 0.0. Uses Haversine method as its base.
+ * 
+ * lat1, lon1 Start point lat2, lon2 End point el1 Start altitude in meters
+ * el2 End altitude in meters
+ * @returns Distance in Meters
+ */
+function distance(lat1,lon1,lat2,
+        lon2, el1,  el2) {
+
+    var R = 6371; // Radius of the earth
+    el1 = 0;
+    el2 = 0;
+
+    var latDistance = radians(lat2 - lat1);
+    var lonDistance = radians(lon2 - lon1);
+    var a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+            + Math.cos(radians(lat1)) * Math.cos(radians(lat2))
+            * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    var distance = R * c * 1000; // convert to meters
+
+    var height = el1 - el2;
+
+    var distance = Math.pow(distance, 2) + Math.pow(height, 2);
+
+    if (distance < 100)
+      return Math.sqrt(distance).toFixed(2);
+}
 
 
 module.exports = param;

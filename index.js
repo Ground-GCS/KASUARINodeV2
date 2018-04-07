@@ -7,10 +7,12 @@
  * 	2. socket.io
  */
  // change this with the home coordinate
-let  homeLatitude = -7.658567,
-	   homeLongitude = 107.689918;
+ //-6.970484, 107.629704
+ //-6.975553, 107.630305
+let  homeLatitude = -6.975553,
+	   homeLongitude = 107.630305;
 
-const kombatData = require('./config/attributesKombat');
+const kombatData = require('./config/attributesKombat'); // config data
 
 /*=======================================================
 =            Serial Communication Defenition            =
@@ -35,7 +37,7 @@ const express = require('express'),
 		io = require('socket.io').listen(server),
 		path = require('path');
 
-app.use(express.static(path.join(__dirname,'Public'))); // untuk nempation file web kita di folder www
+app.use(express.static(path.join(__dirname,'www'))); // untuk nempation file web kita di folder www
 const portListen = 3000;
 server.listen(portListen);
 console.log("Server starting on localhost:"+portListen)
@@ -66,13 +68,24 @@ try {
 	kombatPort.pipe(kombatParser);
 	kombatParser.on('data' , (data) => {
 	 	let result;
-	 	result = serial.parsingRAWData(data,",");
+	 	result = serial.parsingRAWData(data,","); // parsing incoming data.
 	 	console.log(result);
+    console.log(result.length);
+
 	 	if(result.length == 10 && result[0] == "OK"){
-	 		console.log(result);
-	 		//set data
+	 		console.log("IN");
+	 		//set data to the object 
 	 		kombatData.setData(result);
-	 		
+
+      //calculate bearing and windspeed
+      kombatData.getBearing_WindSpeed();
+
+      // azimuth and elevation
+      console.log('Azimuth : ' + kombatData.getAzimuthAT(homeLatitude,homeLongitude));
+      console.log('Elevation : ' + kombatData.getElevationAT(homeLatitude,homeLongitude));
+      let datts = kombatData.getData();
+      console.log(datts);
+
 	 	  io.sockets.emit('kirim', { 
             datahasil : [
               kombatData.ketinggian,
@@ -88,7 +101,7 @@ try {
               kombatData.yaw            ]
           });  
 
-          io.sockets.emit('dataGraph', {  
+      io.sockets.emit('dataGraph', {  
             data : [ 
               kombatData.ketinggian,
               kombatData.temperature,
@@ -98,7 +111,7 @@ try {
               kombatData.kecAngin            ]
           });
 
-          io.sockets.emit('dataGauge', {  
+      io.sockets.emit('dataGauge', {  
             data : [ 
               kombatData.ketinggian,
               kombatData.temperature,
@@ -109,14 +122,14 @@ try {
             ]
           });
 
-          io.sockets.emit('dataCoordinate', {  
+      io.sockets.emit('dataCoordinate', {  
             data : [ 
               kombatData.latitude,
               kombatData.longitude
             ]
           });
 
-          io.sockets.emit('angin' , {
+      io.sockets.emit('angin' , {
             data : [ 
               kombatData.arahAngin , 
               kombatData.kecAngin
@@ -137,6 +150,8 @@ try {
 	console.log("Available Port are : ");
 	serial.checkListPort();
 }
+
+
 
 // Safely close
 process.stdin.resume();//so the program will not close instantly

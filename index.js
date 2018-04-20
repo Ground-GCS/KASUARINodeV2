@@ -17,6 +17,8 @@ let  homeLatitude = -6.975553,
 	   homeLongitude = 107.630305;
 
 const kombatData = require('./config/attributesKombat'); // config data
+const moment = require('moment-timezone'); //config timezone
+moment().tz("Asia/Bangkok").format();
 
 /*=======================================================
 =            Serial Communication Defenition            =
@@ -77,6 +79,15 @@ io.on('connection' , (socket) => {
 
 
 /*=====  End of Socket IO & Express Defenition  ======*/
+// Setup CSV
+const csvWrite = require('./config/csvWrite.js');
+let writerRAW;
+let writerFilter;
+function setupCSVWrite(){
+  writerRAW = csvWrite.createCSVWriteRAW('saveRAW('+ moment().format("DD-MM-YYYY_HH-mm-ss)")+'.csv');
+  writerFilter = csvWrite.createCSVWrite('saveFilter(' +  moment().format("DD-MM-YYYY_HH-mm-ss)")+'.csv');
+}
+setupCSVWrite();
 
 // MAIN 
 let kombatPort = null;
@@ -116,6 +127,10 @@ try {
 
       // invoke function to send to socket
       sendToSockets();
+
+      // save RAW Data
+      csvWrite.saveFile(writerRAW,result);
+
 	 	}
 	});
 
@@ -201,15 +216,7 @@ function sendToSockets(){
 
 }; 
 
-// Setup CSV
-const csvWrite = require('./config/csvWrite.js');
-let writerRAW;
-let writerFilter;
-function setupCSVWrite(){
-  writerRAW = csvWrite.createCSVWrite('saveRAW.csv');
-  writerFilter = csvWrite.createCSVWrite('saveFilter.csv');
-}
-setupCSVWrite();
+
 
 // save to CSV and log to attitude
 setInterval(()=>{

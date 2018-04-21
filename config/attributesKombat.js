@@ -129,7 +129,8 @@ let param = {
 
       // set all incoming to suitable parameter
     */
-    //param.ketinggian  = data[1];
+    //if (data[1] >= 0 )
+     // param.ketinggian  = data[1];
     param.ketinggian = param.ketinggian + 1; // uncomment this if demo ketinggian
 
     if (data[2] != "0.00") {
@@ -182,11 +183,11 @@ let param = {
 
     // check distance greater than 1 m/s and under 1000 m/s
     // /console.log("distance :" + dist);
-    if (dist > 1 && dist < 1000){
+    if (dist > 0.1 && dist < 1000){
       param.latitude = lat;
       param.longitude = lon;
-      console.log("Set lat lon");
-      param.getBearing_WindSpeed();
+      //console.log("Set lat lon");
+      //param.getBearing_WindSpeed();
     } else {
       param.notValidMovement = true;
     }

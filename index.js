@@ -13,8 +13,8 @@
  // change this with the home coordinate
  //-6.970484, 107.629704
  //-6.975553, 107.630305
-let  homeLatitude = -6.975553,
-	   homeLongitude = 107.630305;
+let  homeLatitude = -6.976938,
+	   homeLongitude = 107.630218;
 
 const kombatData = require('./config/attributesKombat'); // config data
 const moment = require('moment-timezone'); //config timezone
@@ -29,6 +29,9 @@ const serial = require('./config/serialConnection.js'),
 	  	kombatParser = new parsers.Readline({
 				delimiter : '\r\n'
 			}),
+      ATParser = new parsers.Readline({
+        delimiter : '\r\n'
+      }), 
 	  	mainPortNum = process.argv[2], // first argument for KOMBAT serial connection
 	  	antennaPortNum = process.argv[3], // second argument for Antenna Tracker serial connection
 	  	mainBaudRate = 57600;
@@ -92,11 +95,25 @@ setupCSVWrite();
 // MAIN 
 let kombatPort = null;
 let antennaPort = null;
+let azimuth = 0 , bearing = 0;
 try {
 	kombatPort = serial.connectSerial(mainPortNum,mainBaudRate); // open serial connection
-  setupAntennaTracker(); // make antennaPort available
+  antennaPort = serial.connectSerial(antennaPortNum, 115200);
+
+  //setupAntennaTracker(); // make antennaPort available
 	//open the port
-	kombatPort.on('open', ()=> {
+	antennaPort.on('open', ()=> {
+    setTimeout(()=>{
+      //serial.writeAndDrain(kombatPort,"1");
+    },3000);
+    console.log("Antenna serial is open, starting receieve the data...");
+  });
+
+
+  antennaPort.pipe(ATParser);
+ 
+
+  kombatPort.on('open', ()=> {
 		setTimeout(()=>{
 			serial.writeAndDrain(kombatPort,"1");
 		},3000);
@@ -107,6 +124,7 @@ try {
 
   // data event for serial data incoming
 	kombatParser.on('data' , (data) => {
+    //console.log(data);
 	 	let result;
 	 	result = serial.parsingRAWData(data,","); // parsing incoming data.
 
@@ -116,11 +134,14 @@ try {
 	 		kombatData.setData(result);
 
       //calculate bearing and windspeed
-      //kombatData.getBearing_WindSpeed();
+      kombatData.getBearing_WindSpeed();
+      azimuth = kombatData.getAzimuthAT(homeLatitude,homeLongitude);
+      elevation = kombatData.getElevationAT(homeLatitude, homeLongitude);
 
       // azimuth and elevation
-      console.log('Azimuth : ' + kombatData.getAzimuthAT(homeLatitude,homeLongitude));
-      console.log('Elevation : ' + kombatData.getElevationAT(homeLatitude,homeLongitude));
+      console.log('Azimuth : ' + azimuth);
+      console.log('Elevation : ' + elevation);
+
       let datts = kombatData.getData();
       console.log(datts);
 
@@ -131,7 +152,16 @@ try {
       // save RAW Data
       csvWrite.saveFile(writerRAW,result);
 
-	 	}
+      // write antenna
+      //if (antennaPortNum != null)
+  
+    }
+
+ ATParser.on('data', (data) =>{
+    console.log(data);
+  });
+
+
 	});
 
 } catch(error) {
@@ -141,23 +171,49 @@ try {
 	serial.checkListPort();
 }
 
+setInterval(()=>{
+console.log("write AT");
+    command =  azimuth + "," + elevation + "#";
+    console.log(command);
+    //serial.writeAndDrain(portAT,command);
+    antennaPort.write(command);
+},1000);
+
 function setupAntennaTracker(){
   if (antennaPortNum != null){
     antennaPort = serial.connectSerial(antennaPortNum,mainBaudRate);
+    console.log("SETUP Antenna Tracker");
+    console.log(antennaPortNum);
+    antennaPort.pipe(ATParser);
+
+    antennaPort.on('open' , ()=> {
+
+    ATParser.on('data', (data)=>{
+      console.log(data);
+    });
+    });
   }
 }
 
 // write azimuth and elevation to antenna tracker
 let prevElevation = 0, prevAzimuth = 0 , command = "";
 function writeAntennaTracker(azimuth, elevation, portAT){
-  if (prevElevation != elevation || prevAzimuth != azimuth){
+ // if (prevElevation != elevation || prevAzimuth != azimuth){
     prevElevation = elevation;
     prevAzimuth = azimuth;
-
+    console.log("write AT");
     command = " " + azimuth + "," + elevation + "#";
-    serial.writeAndDrain(portAT,command);
-  }
+    //serial.writeAndDrain(portAT,command);
+    antennaPort.write(command);
+  //}
 }
+
+// function readAT(parser){
+//   parser.on("data" =>(data) {
+//     console.log(data);
+//   });
+// }
+
 
 // io.socket.emit send to web socket
 // call it to main..
@@ -233,7 +289,7 @@ function exitHandler(options, err) {
     if (options.cleanup) {
     	kombatPort.close(function (err) {
 		    console.log('port closed', err);
-		});
+		} );
     	if(antennaPortNum != null)
     		antennaPort.close();
 
